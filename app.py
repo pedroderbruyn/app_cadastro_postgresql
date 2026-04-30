@@ -11,15 +11,60 @@ def get_connection():
         port=st.secrets["postgres"]["port"]
     )
 
+
+def validar_login(usuario, senha):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        # Verifica se o usuário e senha existem na tabela usuarios_sistema
+        cur.execute("SELECT usuario FROM usuarios_sistema WHERE usuario = %s AND senha = %s", (usuario, senha))
+        user = cur.fetchone()
+        cur.close()
+        conn.close()
+        return user is not None
+    except Exception as e:
+        st.error(f"Erro ao validar login: {e}")
+        return False    
+
+def tela_login():
+    st.container()
+    with st.columns([1, 2, 1])[1]: # Centraliza o formulário na tela
+        st.subheader("Acesso ao Sistema")
+        with st.form("login_form"):
+            user = st.text_input("Usuário")
+            password = st.text_input("Senha", type="password")
+            if st.form_submit_button("Entrar"):
+                if validar_login(user, password):
+                    st.session_state["logado"] = True
+                    st.rerun()
+                else:
+                    st.error("Credenciais inválidas")
+
+
 def main():
+    # 1. Inicializa o estado de segurança
+    if "logado" not in st.session_state:
+        st.session_state["logado"] = False
+
+    # 2. Verifica se o usuário precisa fazer login
+    if not st.session_state["logado"]:
+        tela_login()
+        return  # Interrompe a execução para não mostrar o app abaixo
+
+    # 3. Adiciona opção de sair na barra lateral
+    if st.sidebar.button("Sair do Sistema"):
+        st.session_state["logado"] = False
+        st.rerun()
+
+    # --- O SEU CÓDIGO ATUAL COMEÇA AQUI ---
     st.title("Sistema de Cadastro")
     st.subheader("Inserir Novo Registro no PostgreSQL")
 
+    # Formulário de Cadastro
     with st.form("cadastro_form", clear_on_submit=True):
         nome = st.text_input("Nome completo", max_chars=50)
         email = st.text_input("E-mail", max_chars=50)
         
-        # AJUSTE 1: Formato brasileiro no input
         data_nasc = st.date_input(
             "Data de Nascimento", 
             min_value=datetime(1900, 1, 1),
